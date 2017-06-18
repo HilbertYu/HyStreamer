@@ -8,6 +8,7 @@ extern "C"
 #include <libavformat/avformat.h>
 #include <libavutil/avutil.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/time.h>
 #include <libswscale/swscale.h>
 };
 
@@ -52,11 +53,29 @@ public:
 
     int frameDecode(AVPacket * pavpkt)
     {
+        static int64_t tspm = 0;
         int ret = 0;
+        printf("ddd %lld, %lld\n" ,pavpkt->dts, pavpkt->pts);
+        printf("ddd %lld\n", pavpkt->duration);
+        printf("ddd %lld\n", av_gettime_relative());
+
         ret = avcodec_send_packet(m_video_codec_ctx, pavpkt);
         printf("[send_packet %d]\n", ret);
         ret = avcodec_receive_frame(m_video_codec_ctx, m_video_frame);
         printf("[recv frame%d]\n", ret);
+
+        // AVRational fps = 
+        //     av_guess_frame_rate(m_fmt_ctx, m_fmt_ctx->streams[0],m_video_frame);
+        //
+        //
+        // printf("fps = %.2lf\n", (double)fps.num/fps.den);
+
+
+        int64_t cur = av_gettime_relative();
+
+        printf(">> %.2f\n", 1000000.0/(cur - tspm));
+
+        tspm = av_gettime_relative();
 
         return ret;
     }
@@ -235,7 +254,7 @@ void testCPP(const char * file_name)
 
     int frame_cnt = 0;
 
-    FILE * output = fopen("rgbfile","wb+");
+//    FILE * output = fopen("rgbfile","wb+");
 
     const int w = ctx.getWidth();
     const int h = ctx.getHeight();
@@ -258,19 +277,21 @@ void testCPP(const char * file_name)
             int dims[2] = {h ,w};
             printf("h, w = %d %d\n", h, w);
             Mat src = cv::Mat(dim, dims, CV_8UC3, cvt_buf);
+            //cvtColor(src, gray_image, CV_BGR2GRAY );
 
             imshow("opencv", src);
             waitKey(1);
         }
         printf("%d\n", w*h);
-        fwrite(cvt_buf,w*h*3,1,output);
+        //fwrite(cvt_buf,w*h*3,1,output);
     }
-    fclose(output);
+//    fclose(output);
     ctx.cleanup();
 }
 
 int main(int argc, const char * argv[])
 {
-    testCPP("./test.h264");
+//    testCPP("./test.h264");
+    testCPP("/tmp/fifo");
     return 0;
 }
