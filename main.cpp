@@ -44,6 +44,16 @@ public:
         return ret;
     }
 
+    int getWidth(void) const
+    {
+        return m_video_frame->width;
+    }
+
+    int getHeight(void) const
+    {
+        return m_video_frame->height;
+    }
+
     uint8_t * getConvertedFormtFrame(void)
     {
         enum AVPixelFormat pix_fmt = AV_PIX_FMT_BGR24;
@@ -64,7 +74,7 @@ public:
 
         sws_freeContext(img_convert_ctx);
 
-        return 0;
+        return m_bgr_frame->data[0];
     }
 
 };
@@ -202,11 +212,15 @@ void testCPP(void)
 {
     HyStreamerBase ctx;
     ctx.init("./xxx");
+   // ctx.init("./test.h264");
     ctx.init_video_stream();
 
     AVPacket avpkt;
 
     int frame_cnt = 0;
+
+    FILE * output=fopen("out.rgb","wb+");
+
     while (ctx.readVideoPkt(&avpkt) >= 0)
     {
         printf("frame_cnt = %d\n", frame_cnt);
@@ -215,11 +229,19 @@ void testCPP(void)
 
         ctx.frameDecode(&avpkt);
 
-        ctx.getConvertedFormtFrame();
+        uint8_t * cvt_buf = ctx.getConvertedFormtFrame();
 
         av_packet_unref(&avpkt);
-    }
 
+        const int h = ctx.getHeight();
+        const int w = ctx.getWidth();
+        printf("%d\n", w*h);
+        fwrite(cvt_buf,w*h*3,1,output);
+    }
+    fclose(output);
+
+    //avformat_close_input(&fmt_ctx);
+    //avcodec_free_context(&video_codec_ctx);
 }
 
 void test(void)
