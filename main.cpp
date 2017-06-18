@@ -9,6 +9,148 @@ extern "C"
 #include <swscale.h>
 };
 
+#include <string>
+
+class HyStreamerBase
+{
+
+protected:
+    AVFormatContext * m_fmt_ctx;
+    std::string m_url;
+
+    //to be subclass
+    AVCodecContext * m_video_codec_ctx;
+    AVCodec * m_video_codec;
+    AVFrame * m_video_frame;
+    AVFrame * m_bgr_frame;
+public:
+    HyStreamerBase(void);
+
+    int init(const std::string & url);
+
+    int init_video_stream(void);
+
+};
+
+HyStreamerBase::HyStreamerBase(void):
+    m_fmt_ctx(NULL),
+    m_url(),
+
+    m_video_codec_ctx(NULL),
+    m_video_codec(NULL),
+    m_video_frame(NULL),
+    m_bgr_frame(NULL)
+{
+
+}
+
+#if 0
+av_freep(&bgr_frame->data[0]);
+av_frame_free(&bgr_frame);
+av_frame_free(&video_frame);
+avformat_close_input(&fmt_ctx);
+avcodec_free_context(&video_codec_ctx);
+#endif
+
+int HyStreamerBase::init(const std::string & url)
+{
+    av_register_all();
+
+    int ret = 0;
+    ret = avformat_open_input(&m_fmt_ctx, url.c_str(), NULL, NULL);
+    if (ret < 0)
+    {
+        goto fail;
+    }
+
+    ret = avformat_find_stream_info(m_fmt_ctx, NULL);
+
+    if (ret < 0)
+    {
+        avformat_close_input(&m_fmt_ctx);
+        goto fail;
+    }
+
+
+    return 0;
+
+fail:
+    fprintf(stderr, ">%s\n", av_err2str(ret));
+    return -1;
+
+}
+
+int HyStreamerBase::init_video_stream(void)
+{
+    printf("fmt_ctx:\n");
+    printf("nb_streams %d\n", m_fmt_ctx->nb_streams);
+
+    //can test NULL to codec
+    //#2
+    m_video_codec_ctx = avcodec_alloc_context3(NULL);
+
+    avcodec_parameters_to_context(m_video_codec_ctx
+            , m_fmt_ctx->streams[0]->codecpar);
+
+    printf("stream width %d\n", m_video_codec_ctx->width);
+    printf("stream height %d\n", m_video_codec_ctx->height);
+    printf("video type no. : %d\n", AVMEDIA_TYPE_VIDEO);
+    printf("stream type %d\n", m_video_codec_ctx->codec_type);
+    printf("codec-id = %1d, (h264 = %d)\n", m_video_codec_ctx->codec_id, AV_CODEC_ID_H264);
+
+    m_video_codec = avcodec_find_decoder(m_video_codec_ctx->codec_id);
+    if (!m_video_codec)
+    {
+        fprintf(stderr, "error-avcodec_find_decoder\n");
+        exit(1);
+    }
+
+    if (avcodec_open2(m_video_codec_ctx, m_video_codec, NULL) < 0)
+    {
+        fprintf(stderr, "error-avcodec_open2\n");
+        exit(1);
+    }
+
+
+    m_video_frame = av_frame_alloc();
+    if (!m_video_frame)
+    {
+        fprintf(stderr, "error-av_frame_alloc\n");
+        exit(1);
+    }
+
+
+    m_bgr_frame = av_frame_alloc();
+
+    if (!m_bgr_frame)
+    {
+        fprintf(stderr, "error-av_frame_alloc\n");
+        exit(1);
+    }
+
+    {
+        enum AVPixelFormat pix_fmt = AV_PIX_FMT_BGR24;
+
+        int buf_size = av_image_alloc(
+                m_bgr_frame->data,
+                m_bgr_frame->linesize,
+                m_video_codec_ctx->width, m_video_codec_ctx->height,
+                 pix_fmt, 1);
+
+        printf("convert buffer size = %d\n", buf_size);
+    }
+
+    return 0;
+}
+
+void testCPP(void)
+{
+    HyStreamerBase ctx;
+    ctx.init("./xxx");
+    ctx.init_video_stream();
+
+}
+
 void test(void)
 {
     av_register_all();
@@ -45,7 +187,8 @@ void test(void)
         //#2
         video_codec_ctx = avcodec_alloc_context3(NULL);
 
-        avcodec_parameters_to_context(video_codec_ctx, fmt_ctx->streams[0]->codecpar);
+        avcodec_parameters_to_context(video_codec_ctx
+                , fmt_ctx->streams[0]->codecpar);
 
         printf("stream width %d\n", video_codec_ctx->width);
         printf("stream height %d\n", video_codec_ctx->height);
@@ -90,8 +233,10 @@ void test(void)
         {
             enum AVPixelFormat pix_fmt = AV_PIX_FMT_BGR24;
 
-            int buf_size = av_image_alloc(bgr_frame->data, bgr_frame->linesize,
-                       video_codec_ctx->width, video_codec_ctx->height, pix_fmt, 1);
+            int buf_size = av_image_alloc(
+                    bgr_frame->data, bgr_frame->linesize,
+                       video_codec_ctx->width,
+                       video_codec_ctx->height, pix_fmt, 1);
 
             printf("convert buffer size = %d\n", buf_size);
         }
@@ -101,7 +246,6 @@ void test(void)
 
 //###########################3
 
-        struct SwsContext * img_convert_ctx = NULL;
 
         int frame_cnt = 0;
         FILE *output=fopen("out.rgb","wb+");
@@ -134,7 +278,7 @@ void test(void)
                 const int w = video_codec_ctx->width;
                 const int h = video_codec_ctx->height;
 
-                SwsContext * img_convert_ctx
+                struct SwsContext * img_convert_ctx
                     = sws_getContext(
                             w, h, video_codec_ctx->pix_fmt,
                             w, h, AV_PIX_FMT_BGR24,
@@ -172,6 +316,10 @@ void test(void)
 
 int main(int argc, const char * argv[])
 {
+   // test();
+    testCPP();
+    return 0;
+
     test();
     return 0;
 }
