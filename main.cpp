@@ -33,6 +33,40 @@ public:
 
     int readVideoPkt(AVPacket * pavpkt);
 
+    int frameDecode(AVPacket * pavpkt)
+    {
+        int ret = 0;
+        ret = avcodec_send_packet(m_video_codec_ctx, pavpkt);
+        printf("[send_packet %d]\n", ret);
+        ret = avcodec_receive_frame(m_video_codec_ctx, m_video_frame);
+        printf("[recv frame%d]\n", ret);
+
+        return ret;
+    }
+
+    uint8_t * getConvertedFormtFrame(void)
+    {
+        enum AVPixelFormat pix_fmt = AV_PIX_FMT_BGR24;
+
+        const int w = m_video_codec_ctx->width;
+        const int h = m_video_codec_ctx->height;
+
+        struct SwsContext * img_convert_ctx
+            = sws_getContext(
+                    w, h, m_video_codec_ctx->pix_fmt,
+                    w, h, pix_fmt,
+                    SWS_BICUBIC, NULL, NULL, NULL);
+
+        sws_scale(img_convert_ctx,
+                m_video_frame->data, m_video_frame->linesize, 0, h,
+                m_bgr_frame->data, m_bgr_frame->linesize);
+
+
+        sws_freeContext(img_convert_ctx);
+
+        return 0;
+    }
+
 };
 
 HyStreamerBase::HyStreamerBase(void):
@@ -152,6 +186,14 @@ int HyStreamerBase::readVideoPkt(AVPacket * pavpkt)
 
     av_init_packet(pavpkt);
     int ret = av_read_frame(m_fmt_ctx, pavpkt);
+
+    if (ret < 0)
+    {
+        av_freep(&m_bgr_frame->data[0]);
+        av_frame_free(&m_bgr_frame);
+        av_frame_free(&m_video_frame);
+    }
+
     //AVERROR_EOF
     return ret;
 }
@@ -163,14 +205,21 @@ void testCPP(void)
     ctx.init_video_stream();
 
     AVPacket avpkt;
+
     int frame_cnt = 0;
     while (ctx.readVideoPkt(&avpkt) >= 0)
     {
         printf("frame_cnt = %d\n", frame_cnt);
         ++frame_cnt;
 
+
+        ctx.frameDecode(&avpkt);
+
+        ctx.getConvertedFormtFrame();
+
         av_packet_unref(&avpkt);
     }
+
 }
 
 void test(void)
