@@ -10,6 +10,7 @@ extern "C"
 };
 
 #include <string>
+#include <assert.h>
 
 class HyStreamerBase
 {
@@ -29,6 +30,8 @@ public:
     int init(const std::string & url);
 
     int init_video_stream(void);
+
+    int readVideoPkt(AVPacket * pavpkt);
 
 };
 
@@ -143,12 +146,31 @@ int HyStreamerBase::init_video_stream(void)
     return 0;
 }
 
+int HyStreamerBase::readVideoPkt(AVPacket * pavpkt)
+{
+    assert(pavpkt);
+
+    av_init_packet(pavpkt);
+    int ret = av_read_frame(m_fmt_ctx, pavpkt);
+    //AVERROR_EOF
+    return ret;
+}
+
 void testCPP(void)
 {
     HyStreamerBase ctx;
     ctx.init("./xxx");
     ctx.init_video_stream();
 
+    AVPacket avpkt;
+    int frame_cnt = 0;
+    while (ctx.readVideoPkt(&avpkt) >= 0)
+    {
+        printf("frame_cnt = %d\n", frame_cnt);
+        ++frame_cnt;
+
+        av_packet_unref(&avpkt);
+    }
 }
 
 void test(void)
