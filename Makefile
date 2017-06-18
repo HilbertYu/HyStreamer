@@ -5,15 +5,15 @@ CC       = gcc
 CXX      = g++
 CFLAGS   = -g -Wall
 CXXFLAGS = $(CFLAGS) -Weffc++
+
 LIBS     = -lm $(shell  pkg-config --libs /usr/local/Cellar/ffmpeg/3.3.2/lib/pkgconfig/lib*)
+LIBS     += -lpthread $(shell pkg-config --libs /usr/local/Cellar/opencv3/3.2.0/lib/pkgconfig/opencv.pc)
 
 FFMPEG_INCPATH=/usr/local/Cellar/ffmpeg/3.3.2/include
 
 INCPATH  += -I$(FFMPEG_INCPATH) \
-			-I$(FFMPEG_INCPATH)/libavcodec \
-			-I$(FFMPEG_INCPATH)/libavutil \
-			-I$(FFMPEG_INCPATH)/libavformat \
-			-I$(FFMPEG_INCPATH)/libswscale \
+
+INCPATH  += -I/usr/local/Cellar/opencv3/3.2.0/include/
 
 DIR     = $(shell pwd)
 
@@ -21,7 +21,8 @@ DIR     = $(shell pwd)
 # source files setting
 ###############################################################################
 C_SOURCES   = $(shell find . -name "*.c")
-CXX_SOURCES = $(shell find . -name "*.cpp")
+#CXX_SOURCES = $(shell find . -name "*.cpp")
+CXX_SOURCES = main.cpp
 C_OBJS      = $(patsubst %.c,%.o,$(wildcard $(C_SOURCES)))
 CXX_OBJS    = $(patsubst %.cpp,%.o,$(wildcard $(CXX_SOURCES)))
 OBJS        = $(C_OBJS) $(CXX_OBJS)

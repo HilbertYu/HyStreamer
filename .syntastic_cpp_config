@@ -6,3 +6,4 @@
 -I/usr/local/Cellar/ffmpeg/3.3.2/include/libavutil
 -I/usr/local/Cellar/ffmpeg/3.3.2/include/libavformat
 -I/usr/local/Cellar/ffmpeg/3.3.2/include/libswscale
+-I/usr/local/Cellar/opencv3/3.2.0/include/

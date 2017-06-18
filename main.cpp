@@ -1,16 +1,33 @@
 #include <stdio.h>
 
+#include <iostream>
+//#include <time.h>
 extern "C"
 {
-#include <avcodec.h>
-#include <avformat.h>
-#include <avutil.h>
-#include <imgutils.h>
-#include <swscale.h>
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavutil/avutil.h>
+#include <libavutil/imgutils.h>
+#include <libswscale/swscale.h>
 };
 
 #include <string>
 #include <assert.h>
+
+//=============================
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+
+#include <pthread.h>
+#include <vector>
+#include <unistd.h>
+
+#include <string>
+#include <sys/types.h>
+#include <sys/stat.h>
+//=============================
 
 class HyStreamerBase
 {
@@ -46,12 +63,12 @@ public:
 
     int getWidth(void) const
     {
-        return m_video_frame->width;
+        return m_video_codec_ctx->width;
     }
 
     int getHeight(void) const
     {
-        return m_video_frame->height;
+        return m_video_codec_ctx->height;
     }
 
     uint8_t * getConvertedFormtFrame(void)
@@ -207,10 +224,10 @@ int HyStreamerBase::readVideoPkt(AVPacket * pavpkt)
     return ret;
 }
 
-void testCPP(void)
+void testCPP(const char * file_name)
 {
     HyStreamerBase ctx;
-    ctx.init("./xxx");
+    ctx.init(file_name);
    // ctx.init("./test.h264");
     ctx.init_video_stream();
 
@@ -219,6 +236,9 @@ void testCPP(void)
     int frame_cnt = 0;
 
     FILE * output = fopen("rgbfile","wb+");
+
+    const int w = ctx.getWidth();
+    const int h = ctx.getHeight();
 
     while (ctx.readVideoPkt(&avpkt) >= 0)
     {
@@ -231,8 +251,17 @@ void testCPP(void)
 
         av_packet_unref(&avpkt);
 
-        const int h = ctx.getHeight();
-        const int w = ctx.getWidth();
+        {
+            using namespace cv;
+
+            int dim = 2;
+            int dims[2] = {h ,w};
+            printf("h, w = %d %d\n", h, w);
+            Mat src = cv::Mat(dim, dims, CV_8UC3, cvt_buf);
+
+            imshow("opencv", src);
+            waitKey(1);
+        }
         printf("%d\n", w*h);
         fwrite(cvt_buf,w*h*3,1,output);
     }
@@ -242,6 +271,6 @@ void testCPP(void)
 
 int main(int argc, const char * argv[])
 {
-    testCPP();
+    testCPP("./test.h264");
     return 0;
 }
