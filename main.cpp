@@ -10,6 +10,7 @@ extern "C"
 #include <libavutil/imgutils.h>
 #include <libavutil/time.h>
 #include <libswscale/swscale.h>
+#include <SDL2/SDL.h>
 };
 
 #include <string>
@@ -111,6 +112,12 @@ public:
         sws_freeContext(img_convert_ctx);
 
         return m_bgr_frame->data[0];
+    }
+    
+    int getLinesize(void)
+    {
+        return m_bgr_frame->linesize[0];
+
     }
 
     void cleanup(void)
@@ -242,22 +249,33 @@ int HyStreamerBase::readVideoPkt(AVPacket * pavpkt)
     //AVERROR_EOF
     return ret;
 }
+//###################################3
+
+ //////////////////////////////////////////////////////
+ // SDL
+
+//###################################3
+
 
 void testCPP(const char * file_name)
 {
     HyStreamerBase ctx;
     ctx.init(file_name);
-   // ctx.init("./test.h264");
+    // ctx.init("./test.h264");
     ctx.init_video_stream();
 
     AVPacket avpkt;
 
     int frame_cnt = 0;
 
-//    FILE * output = fopen("rgbfile","wb+");
+    //    FILE * output = fopen("rgbfile","wb+");
 
     const int w = ctx.getWidth();
     const int h = ctx.getHeight();
+
+
+//######################################
+
 
     uint64_t ts = 0;
 
@@ -267,30 +285,81 @@ void testCPP(const char * file_name)
         int dim = 2;
         int dims[2] = {h ,w};
 
+        int line_size = 0;
+
         while (ctx.readVideoPkt(&avpkt) >= 0)
         {
             ctx.frameDecode(&avpkt);
             uint8_t * cvt_buf = ctx.getConvertedFormtFrame();
+            line_size = ctx.getLinesize();
 
-    //        cv::Mat src = cv::Mat(dim, dims, CV_8UC3, cvt_buf);
-        //    cv::imshow("x", src);
-        //    cv::waitKey(1);
+            //        cv::Mat src = cv::Mat(dim, dims, CV_8UC3, cvt_buf);
+            //    cv::imshow("x", src);
+            //    cv::waitKey(1);
             fq.push_back(cv::Mat(dim, dims, CV_8UC3, cvt_buf).clone());
             av_packet_unref(&avpkt);
         }
-       // return;
+        // return;
+
+
+
+        SDL_Rect sdlRect;
+        sdlRect.x = 0;
+        sdlRect.y = 0;
+        sdlRect.w = w;
+        sdlRect.h = h;
+
+
+        if( SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER ))
+        {
+            fprintf(stderr, "Could not initialize SDL - %s\n", SDL_GetError());
+            exit(1);
+        }
+
+        SDL_Window* sdlWindow = SDL_CreateWindow("Video Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w,h , SDL_WINDOW_OPENGL);
+        if( !sdlWindow )
+        {
+            fprintf(stderr, "SDL: could not set video mode - exiting\n");
+            exit(1);
+        }
+
+        SDL_Renderer* sdlRenderer = SDL_CreateRenderer(sdlWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_TARGETTEXTURE);
+        SDL_Texture* sdlTexture = SDL_CreateTexture(sdlRenderer, SDL_PIXELFORMAT_BGR24, SDL_TEXTUREACCESS_STATIC, w, h);
+        if(!sdlTexture)
+        {
+            printf("er\n");
+            return ;
+        }
+        SDL_SetTextureBlendMode(sdlTexture,SDL_BLENDMODE_BLEND );
+
+        SDL_Event event;
+
+        // SDL_UpdateTexture( sdlTexture, &sdlRect, ptr, line_size);
+        // SDL_RenderClear( sdlRenderer );
+        // SDL_RenderCopy( sdlRenderer, sdlTexture, &sdlRect, &sdlRect );
+        // SDL_RenderPresent( sdlRenderer );
+        //
+        //
 
         for (int i = 0; i < fq.size(); ++i)
         {
             printf("i = %d\n", i);
             ts = av_gettime_relative();
-            imshow("opencv", fq[i]);
+           // imshow("opencv", fq[i]);
+
+            uint8_t * ptr = fq[i].data;
+            SDL_UpdateTexture( sdlTexture, &sdlRect, ptr, line_size);
+            SDL_RenderClear( sdlRenderer );
+            SDL_RenderCopy( sdlRenderer, sdlTexture, &sdlRect, &sdlRect );
+            SDL_RenderPresent( sdlRenderer );
 
             fprintf(stderr, "(showimg)dt = %lld\n", (av_gettime_relative() - ts)/1000);
 
             ts = av_gettime_relative();
-            cv::waitKey(1);
+          //  cv::waitKey(1);
             fprintf(stderr, "(wait key)dt = %lld\n", (av_gettime_relative() - ts)/1000);
+
+            usleep(1000*1000/25);
 
         }
 
@@ -312,9 +381,9 @@ void testCPP(const char * file_name)
         uint8_t * cvt_buf = ctx.getConvertedFormtFrame();
         fprintf(stderr, "(convert)dt = %lld\n", (av_gettime_relative() - ts)/1000);
 
-    //    cv::namedWindow("opencv");
+        //    cv::namedWindow("opencv");
 
-//        if (0)
+        //        if (0)
         {
             using namespace cv;
 
@@ -341,7 +410,7 @@ void testCPP(const char * file_name)
         av_packet_unref(&avpkt);
 
     }
-//    fclose(output);
+    //    fclose(output);
     ctx.cleanup();
 }
 

@@ -8,12 +8,15 @@ CXXFLAGS = $(CFLAGS) -Weffc++
 
 LIBS     = -lm $(shell  pkg-config --libs /usr/local/Cellar/ffmpeg/3.3.2/lib/pkgconfig/lib*)
 LIBS     += -lpthread $(shell pkg-config --libs /usr/local/Cellar/opencv3/3.2.0/lib/pkgconfig/opencv.pc)
+LIBS     += -L/usr/local/lib -lSDL2
 
 FFMPEG_INCPATH=/usr/local/Cellar/ffmpeg/3.3.2/include
 
 INCPATH  += -I$(FFMPEG_INCPATH) \
 
 INCPATH  += -I/usr/local/Cellar/opencv3/3.2.0/include/
+
+INCPATH  += -I/usr/local/Cellar/sdl2/2.0.5/include/
 
 DIR     = $(shell pwd)
 
