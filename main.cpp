@@ -55,9 +55,9 @@ public:
     {
         static int64_t tspm = 0;
         int ret = 0;
-        printf("ddd %lld, %lld\n" ,pavpkt->dts, pavpkt->pts);
-        printf("ddd %lld\n", pavpkt->duration);
-        printf("ddd %lld\n", av_gettime_relative());
+        // printf("ddd %lld, %lld\n" ,pavpkt->dts, pavpkt->pts);
+        // printf("ddd %lld\n", pavpkt->duration);
+        // printf("ddd %lld\n", av_gettime_relative());
 
         ret = avcodec_send_packet(m_video_codec_ctx, pavpkt);
         printf("[send_packet %d]\n", ret);
@@ -73,7 +73,7 @@ public:
 
         int64_t cur = av_gettime_relative();
 
-        printf(">> %.2f\n", 1000000.0/(cur - tspm));
+//        printf(">> %.2f\n", 1000000.0/(cur - tspm));
 
         tspm = av_gettime_relative();
 
@@ -259,31 +259,87 @@ void testCPP(const char * file_name)
     const int w = ctx.getWidth();
     const int h = ctx.getHeight();
 
+    uint64_t ts = 0;
+
+    {
+        using namespace std;
+        vector<cv::Mat> fq;
+        int dim = 2;
+        int dims[2] = {h ,w};
+
+        while (ctx.readVideoPkt(&avpkt) >= 0)
+        {
+            ctx.frameDecode(&avpkt);
+            uint8_t * cvt_buf = ctx.getConvertedFormtFrame();
+
+    //        cv::Mat src = cv::Mat(dim, dims, CV_8UC3, cvt_buf);
+        //    cv::imshow("x", src);
+        //    cv::waitKey(1);
+            fq.push_back(cv::Mat(dim, dims, CV_8UC3, cvt_buf).clone());
+            av_packet_unref(&avpkt);
+        }
+       // return;
+
+        for (int i = 0; i < fq.size(); ++i)
+        {
+            printf("i = %d\n", i);
+            ts = av_gettime_relative();
+            imshow("opencv", fq[i]);
+
+            fprintf(stderr, "(showimg)dt = %lld\n", (av_gettime_relative() - ts)/1000);
+
+            ts = av_gettime_relative();
+            cv::waitKey(1);
+            fprintf(stderr, "(wait key)dt = %lld\n", (av_gettime_relative() - ts)/1000);
+
+        }
+
+    }
+    return ;
+
     while (ctx.readVideoPkt(&avpkt) >= 0)
     {
         printf("frame_cnt = %d\n", frame_cnt);
         ++frame_cnt;
 
+        ts = av_gettime_relative();
+
         ctx.frameDecode(&avpkt);
 
+        fprintf(stderr, "(decode)dt = %lld\n", (av_gettime_relative() - ts)/1000);
+
+        ts = av_gettime_relative();
         uint8_t * cvt_buf = ctx.getConvertedFormtFrame();
+        fprintf(stderr, "(convert)dt = %lld\n", (av_gettime_relative() - ts)/1000);
 
-        av_packet_unref(&avpkt);
+    //    cv::namedWindow("opencv");
 
+//        if (0)
         {
             using namespace cv;
 
             int dim = 2;
             int dims[2] = {h ,w};
             printf("h, w = %d %d\n", h, w);
+
+            ts = av_gettime_relative();
             Mat src = cv::Mat(dim, dims, CV_8UC3, cvt_buf);
+            fprintf(stderr, "(init-mat)dt = %lld\n", (av_gettime_relative() - ts)/1000);
             //cvtColor(src, gray_image, CV_BGR2GRAY );
 
+            ts = av_gettime_relative();
             imshow("opencv", src);
+
+            fprintf(stderr, "(showimg)dt = %lld\n", (av_gettime_relative() - ts)/1000);
+
+            ts = av_gettime_relative();
             waitKey(1);
+            fprintf(stderr, "(wait key)dt = %lld\n", (av_gettime_relative() - ts)/1000);
         }
         printf("%d\n", w*h);
         //fwrite(cvt_buf,w*h*3,1,output);
+        av_packet_unref(&avpkt);
+
     }
 //    fclose(output);
     ctx.cleanup();
@@ -291,7 +347,8 @@ void testCPP(const char * file_name)
 
 int main(int argc, const char * argv[])
 {
-//    testCPP("./test.h264");
-    testCPP("/tmp/fifo");
+    testCPP("./test.h264");
+    //testCPP("./ooo");
+//    testCPP("/tmp/fifo");
     return 0;
 }
